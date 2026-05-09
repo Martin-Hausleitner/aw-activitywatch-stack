@@ -10,7 +10,32 @@
 
 ## Top 3 Wege, Apple Health zu verbinden
 
-### 1. Apple Health Export ZIP / export.xml — beste sichere Startvariante
+### 1. Lokaler iPhone→Mac HealthKit-Sync — beste dauerhafte Variante
+
+- iPhone-App liest HealthKit mit expliziter Berechtigung.
+- Mac-Companion/CLI empfängt Daten lokal im WLAN/Bluetooth-Nahbereich.
+- Keine Cloud als Health-Daten-Relay.
+- Leo/OpenClaw importiert die erhaltenen JSON/CSV/Records in ActivityWatch.
+
+Konkrete Kandidaten:
+
+- Health.md: iOS-App + macOS Companion, lokaler Sync via Multipeer Connectivity, JSON/CSV/Markdown-Exports.
+- healthkit-sync-artiger CLI-Ansatz: Pairing, Status, Typenliste, inkrementeller Fetch.
+
+Vorteile:
+
+- beste Privacy/Nutzen-Balance
+- regelmäßig statt manuell
+- ideal für Morning Briefing
+- selektive Datentypen statt riesiger Vollabzug
+
+Nachteile:
+
+- braucht iPhone-App/Companion
+- einmaliges Pairing und HealthKit-Consent nötig
+- wir müssen das konkrete Ausgabeformat an unseren Importer anbinden
+
+### 2. Apple Health Export ZIP / export.xml — bester Backfill und Fallback
 
 - iPhone Health App öffnen.
 - Profilbild oben rechts.
@@ -30,31 +55,13 @@ Vorteile:
 - keine Cloud nötig
 - lokal-first
 - einfach zu prüfen
-- gut für Backfill und erste Datenbasis
+- gut für historischen Backfill und erste Datenbasis
 
 Nachteile:
 
 - manuell
 - nicht live
 - große XML-Datei
-
-### 2. Auto Health Export App / Health Auto Export — beste Automatik später
-
-- iPhone-App exportiert HealthKit-Daten regelmäßig als JSON/CSV.
-- Mac/Leo liest aus lokaler Dropzone oder lokalem Endpoint.
-- Perfekt für tägliches Morning Briefing.
-
-Vorteile:
-
-- automatisch
-- selektive Datentypen
-- besser als riesige manuelle XML-Exports
-
-Nachteile:
-
-- zusätzliche App
-- muss konfiguriert werden
-- Datenschutz/Netzwerkmodus bewusst einstellen
 
 ### 3. iOS Shortcuts Bridge — beste minimalistische Live-Variante
 
@@ -161,3 +168,14 @@ Leo soll nicht nur melden, was kaputt ist, sondern täglich sinnvoll informieren
 ## Sicherheitsregel
 
 Keine medizinische Diagnose. Keine falsche Sicherheit. Health-Daten sind für Awareness, Coaching und Trends. Kritische Werte sollen vorsichtig eskalieren: Pause, beobachten, Arzt/medizinische Hilfe bei echten Warnzeichen.
+
+## Entscheidung nach Recherche
+
+Der lokale Mac/CLI-Sync ist jetzt die bevorzugte Zielarchitektur. Der manuelle Apple-Health-Export bleibt wichtig für historischen Backfill und als robuste Fallback-Route. Für tägliches Coaching sollte Leo aber nicht jeden Tag ein riesiges XML lesen, sondern inkrementell frische Records vom iPhone/Mac-Sync übernehmen.
+
+Nächste technische Erweiterung für `aw-importer-apple-health`:
+
+- `import-json` für Health.md-/HealthKit-Sync-JSON.
+- `sync-folder` für eine lokale Dropzone mit idempotenten Imports.
+- `state.json` mit Record-Hashes gegen Dubletten.
+- Doctor-Check im Stack: Apple-Health-Buckets + letzter Importzeitpunkt.
