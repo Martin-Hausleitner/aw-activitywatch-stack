@@ -9,3 +9,17 @@ secrets/
 *.secret
 __pycache__/
 *.py[cod]
+
+# Local imports / private data
+ActivityWatchImports/
+*.eml
+*.em1
+*.mbox
+*.zip
+config/*.local.json
+reports/private/
+
+# Local launchd/customized scripts
+sync-whoop-keychain.sh
+*.plist
+!*.plist.template

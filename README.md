@@ -1,6 +1,6 @@
 # ActivityWatch Health + Screen Time Stack
 
-Public setup repo for Martin's local ActivityWatch extensions.
+Public setup repo for running local ActivityWatch importers for WHOOP and Apple Screen Time on macOS.
 
 It documents and wires together:
 
@@ -8,6 +8,27 @@ It documents and wires together:
 - Apple/iPhone Screen Time → ActivityWatch importer
 - launchd autostart jobs on macOS
 - privacy-safe WHOOP export email handling
+
+## Agent safety rules
+
+- Do not read broad mailbox history.
+- Do not upload or commit health, sleep, workout, email, or app-usage exports.
+- Prefer local-only paths and `127.0.0.1`.
+- Verify ActivityWatch buckets with `scripts/verify-aw-buckets.py` before reporting success.
+- Run `scripts/secret-scan.py` before every push.
+
+## What this repo does not contain
+
+This repo does not contain health exports, Screen Time exports, WHOOP tokens, OAuth secrets, mailbox credentials, or ActivityWatch databases.
+
+## Repo layout
+
+```text
+scripts/   Import, verification, validation, and agent helpers
+launchd/   macOS LaunchAgent templates
+docs/      Privacy, data-source, and OpenClaw operating notes
+config/    Non-secret example configuration
+```
 
 ## Repositories
 
@@ -39,6 +60,10 @@ OpenClaw agents should treat this repo as the operating contract for local Activ
 Key docs:
 
 - `docs/openclaw-agent-contract.md` — what agents may inspect, update, publish, or must keep private
+- `docs/openclaw-data-ingestion-plan.md` — canonical source and ingestion plan
+- `docs/openclaw-agent-safety-contract.md` — explicit agent safety rules
+- `docs/data-retention-and-exports.md` — what stays local vs public
+- `docs/activitywatch-data-model.md` — bucket and event semantics
 - `docs/data-sources.md` — WHOOP, Screen Time, ActivityWatch, and future daily summary model
 - `docs/whoop-export-email-policy.md` — privacy-safe targeted email export discovery
 
@@ -90,6 +115,32 @@ Already imported files are tracked by SHA-256 in local state:
 ~/Library/Application Support/aw-activitywatch-stack/screentime-imported-files.txt
 ```
 
+
+## Install launchd jobs
+
+Screen Time hourly sync example:
+
+```bash
+mkdir -p "$HOME/Library/Application Support/aw-activitywatch-stack"
+mkdir -p "$HOME/Library/Logs/aw-activitywatch-stack"
+
+cp scripts/sync-screentime-folder.sh "$HOME/Library/Application Support/aw-activitywatch-stack/"
+cp launchd/ai.servas.aw-screentime-hourly.plist.template \
+  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+
+sed -i '' "s#/Users/YOU#$HOME#g" \
+  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+
+launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+launchctl kickstart -k "gui/$UID/ai.servas.aw-screentime-hourly"
+```
+
+Unload:
+
+```bash
+launchctl bootout "gui/$UID/ai.servas.aw-screentime-hourly"
+```
+
 ## WHOOP credentials
 
 Never commit secrets.
@@ -111,10 +162,11 @@ Important: agents must not broadly fetch mailboxes. They should only fetch messa
 ```bash
 curl -fsS http://127.0.0.1:5600/api/0/info
 python3 scripts/verify-aw-buckets.py
+```
 
 ## Current local status
 
-On Martin's MacBook this stack currently sees:
+A healthy local setup should show:
 
 - ActivityWatch server on `127.0.0.1:5600`
 - WHOOP import buckets for sleep/workout/cycle/recovery

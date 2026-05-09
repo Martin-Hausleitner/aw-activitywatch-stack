@@ -7,6 +7,17 @@ BUCKET="${SCREENTIME_BUCKET:-aw-import-screentime_ios_manual}"
 LOG_DIR="$HOME/Library/Logs/aw-activitywatch-stack"
 STATE_DIR="$HOME/Library/Application Support/aw-activitywatch-stack"
 mkdir -p "$IMPORT_DIR" "$LOG_DIR" "$STATE_DIR"
+
+if [[ ! -d "$IMPORTER_DIR" ]]; then
+  echo "Screen Time importer directory not found: $IMPORTER_DIR" >&2
+  exit 1
+fi
+
+if [[ ! -x "$IMPORTER_DIR/.venv/bin/aw-importer-apple-screentime" ]]; then
+  echo "Screen Time importer executable not found. Did you install the importer venv?" >&2
+  exit 1
+fi
+
 STATE_FILE="$STATE_DIR/screentime-imported-files.txt"
 touch "$STATE_FILE"
 cd "$IMPORTER_DIR"

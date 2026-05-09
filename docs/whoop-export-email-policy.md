@@ -23,4 +23,4 @@ Setup step:
 2. Identify stable fields: From, Subject, attachment filename, key body phrase.
 3. Save only those matching rules in local config, not the mail itself.
 
-Pending: paste/provide the `.eml`/`.em1` sample so the exact matcher can be documented.
+Do not commit sample emails. If you need to document a matcher, extract only stable non-sensitive fields such as sender domain, subject prefix, and attachment filename pattern. `.em1` is treated as a user-provided variant of `.eml` and should follow the same privacy rules.

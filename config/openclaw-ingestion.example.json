@@ -1,0 +1,28 @@
+{
+  "timezone": "Europe/Vienna",
+  "activitywatch": {
+    "api_url": "http://127.0.0.1:5600/api/0",
+    "read_only": true
+  },
+  "paths": {
+    "screentime_dropzone": "~/ActivityWatchImports/screentime",
+    "whoop_export_dropzone": "~/ActivityWatchImports/whoop-exports",
+    "local_state_dir": "~/Library/Application Support/aw-activitywatch-stack",
+    "local_log_dir": "~/Library/Logs/aw-activitywatch-stack"
+  },
+  "privacy": {
+    "default_url_mode": "domain_only",
+    "default_window_title_mode": "category_only",
+    "allow_email_search_without_confirmation": false,
+    "allow_raw_health_export_read_without_confirmation": false
+  },
+  "email_matchers": {
+    "whoop_export": {
+      "enabled": false,
+      "from_contains": [],
+      "subject_contains": [],
+      "attachment_name_contains": [],
+      "body_contains": []
+    }
+  }
+}
