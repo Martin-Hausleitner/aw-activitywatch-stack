@@ -1,0 +1,74 @@
+{
+  "date": "2026-05-10",
+  "generated_at": "2026-05-10T00:21:17.971147+02:00",
+  "activitywatch": {
+    "active_minutes": 6,
+    "top_apps": [
+      [
+        "iPhone Mirroring",
+        0.25
+      ],
+      [
+        "Code",
+        0.06
+      ],
+      [
+        "coreautha",
+        0.02
+      ],
+      [
+        "Brave Browser",
+        0.02
+      ],
+      [
+        "Codex",
+        0.01
+      ],
+      [
+        "Terminal",
+        0.0
+      ],
+      [
+        "Chromium",
+        0.0
+      ]
+    ],
+    "late_minutes_after_18": 0
+  },
+  "whoop": {
+    "recovery": {
+      "last_event": "2026-05-09T08:59:50.020000+00:00",
+      "available": true
+    },
+    "sleep": {
+      "last_event": "2026-05-09T01:07:40+00:00",
+      "available": true
+    },
+    "workout": {
+      "last_event": "2026-05-09T12:03:00+00:00",
+      "available": true
+    },
+    "cycle": {
+      "last_event": "2026-05-09T01:07:40+00:00",
+      "available": true
+    }
+  },
+  "screen_time": {
+    "total_minutes": 0,
+    "top_apps": []
+  },
+  "apple_health": {
+    "configured": false,
+    "bucket_count": 0,
+    "buckets": []
+  },
+  "recommendations": [
+    "Apple Health verbinden, damit Schritte/HRV/Schlaf in Leo-Briefings einfließen."
+  ],
+  "data_quality": {
+    "missing": [],
+    "warnings": [
+      "Apple Health not configured yet"
+    ]
+  }
+}
