@@ -51,3 +51,34 @@ Recommended timestamp semantics:
 - aggregate by app/category/day
 - hide raw URLs and window titles unless requested
 - never publish raw health or app-usage exports
+
+
+## Canonical health event payload v1
+
+Use timeline events only for things with real duration: sleep, workouts, mindfulness, app usage. Use daily metric events for recovery, HRV/RHR summaries, steps, strain, phone totals, and coaching outputs.
+
+Normalized event data should include:
+
+```json
+{
+  "schema_version": 1,
+  "source": "apple_health",
+  "kind": "steps",
+  "source_id": null,
+  "dedupe_id": "apple_health:daily:<hash>",
+  "recorded_at": null,
+  "updated_at": null,
+  "timezone": "Europe/Vienna",
+  "metrics": {},
+  "labels": [],
+  "raw_ref": null
+}
+```
+
+Rules:
+
+- `dedupe_id` is mandatory for importer idempotency.
+- Raw payloads stay off by default.
+- `aw-health-daily` is the future unified daily summary layer.
+- `aw-coach-insight` / `aw-coach-daily` are derived coaching outputs, not raw measurements.
+- CGM future data should be point samples plus daily summaries, never full-day fake timeline blocks.

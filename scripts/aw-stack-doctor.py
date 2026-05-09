@@ -37,16 +37,25 @@ try:
     buckets = json.load(urllib.request.urlopen(f"{AW}/api/0/buckets/", timeout=3))
     whoop = [k for k in buckets if k.startswith("aw-importer-whoop")]
     st = [k for k in buckets if k.startswith("aw-import-screentime")]
+    apple_health = [k for k in buckets if k.startswith("aw-importer-apple-health")]
     check("WHOOP buckets", bool(whoop), f"{len(whoop)} found")
     check("Screen Time buckets", bool(st), f"{len(st)} found")
+    check("Apple Health buckets", bool(apple_health), f"{len(apple_health)} found")
 except Exception as exc:
     check("Bucket listing", False, str(exc))
 
-for label in ("ai.servas.aw-whoop-sync", "ai.servas.aw-screentime-hourly"):
+for label in ("ai.servas.aw-whoop-sync", "ai.servas.aw-screentime-hourly", "ai.servas.aw-apple-health-sync"):
     ok, detail = launchd(label)
-    check(f"launchd {label}", ok, detail)
+    if label in {"ai.servas.aw-screentime-hourly", "ai.servas.aw-apple-health-sync"} and ok:
+        # Short-lived interval jobs are OK when loaded but currently not running.
+        check(f"launchd {label}", True, detail)
+    else:
+        check(f"launchd {label}", ok, detail)
 
 check("Screen Time dropzone", Path.home().joinpath("ActivityWatchImports/screentime").exists(), "~/ActivityWatchImports/screentime")
+check("Apple Health raw dropzone", Path.home().joinpath("health-sync/raw").exists(), "~/health-sync/raw")
+check("Apple Health export fallback", Path.home().joinpath("ActivityWatchImports/apple-health").exists(), "~/ActivityWatchImports/apple-health")
+check("Apple Health state", Path.home().joinpath("Library/Application Support/aw-importer-apple-health/state.json").exists(), "~/Library/Application Support/aw-importer-apple-health/state.json")
 check("Stack state dir", Path.home().joinpath("Library/Application Support/aw-activitywatch-stack").exists(), "~/Library/Application Support/aw-activitywatch-stack")
 
 failed = False
