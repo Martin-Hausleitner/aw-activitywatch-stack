@@ -1,11 +1,16 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  shellcheck-lite:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check scripts parse
-        run: bash -n scripts/*.sh || true
+      - name: Check zsh scripts parse
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+          zsh -n scripts/*.sh
       - name: Check Python syntax
-        run: python -m py_compile scripts/verify-aw-buckets.py
+        run: python -m py_compile scripts/*.py
+      - name: Secret scan
+        run: python scripts/secret-scan.py

@@ -31,6 +31,24 @@ Expected buckets include:
 - iPhone Screen Time: app-usage timeline events
 - ActivityWatch desktop usage: baseline work timeline
 
+
+## OpenClaw integration
+
+OpenClaw agents should treat this repo as the operating contract for local ActivityWatch health/lifelog data.
+
+Key docs:
+
+- `docs/openclaw-agent-contract.md` — what agents may inspect, update, publish, or must keep private
+- `docs/data-sources.md` — WHOOP, Screen Time, ActivityWatch, and future daily summary model
+- `docs/whoop-export-email-policy.md` — privacy-safe targeted email export discovery
+
+Useful commands:
+
+```bash
+python3 scripts/aw-health-report.py
+python3 scripts/secret-scan.py
+```
+
 ## Autostart jobs
 
 This repo ships templates in `launchd/`.
