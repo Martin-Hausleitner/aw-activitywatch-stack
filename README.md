@@ -9,6 +9,20 @@ It documents and wires together:
 - launchd autostart jobs on macOS
 - privacy-safe WHOOP export email handling
 
+## Quickstart
+
+```bash
+git clone https://github.com/Martin-Hausleitner/aw-activitywatch-stack.git
+cd aw-activitywatch-stack
+python3 scripts/aw-stack-doctor.py
+```
+
+Install the hourly Screen Time job:
+
+```bash
+scripts/install-local-stack.sh
+```
+
 ## Agent safety rules
 
 - Do not read broad mailbox history.
@@ -64,6 +78,7 @@ Key docs:
 - `docs/openclaw-agent-safety-contract.md` — explicit agent safety rules
 - `docs/data-retention-and-exports.md` — what stays local vs public
 - `docs/activitywatch-data-model.md` — bucket and event semantics
+- `docs/operations.md` — local runbook and repair checklist
 - `docs/data-sources.md` — WHOOP, Screen Time, ActivityWatch, and future daily summary model
 - `docs/whoop-export-email-policy.md` — privacy-safe targeted email export discovery
 
