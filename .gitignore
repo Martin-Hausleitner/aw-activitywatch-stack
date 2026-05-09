@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.env.*
+*.log
+*.local
+exports/
+secrets/
+*.token
+*.secret

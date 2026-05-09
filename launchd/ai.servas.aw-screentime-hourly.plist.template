@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>ai.servas.aw-screentime-hourly</string>
+  <key>ProgramArguments</key><array><string>/Users/YOU/Library/Application Support/aw-activitywatch-stack/sync-screentime-folder.sh</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/aw-activitywatch-stack/screentime.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/aw-activitywatch-stack/screentime.err.log</string>
+</dict></plist>

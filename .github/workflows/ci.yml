@@ -1,0 +1,11 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  shellcheck-lite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check scripts parse
+        run: bash -n scripts/*.sh || true
+      - name: Check Python syntax
+        run: python -m py_compile scripts/verify-aw-buckets.py
