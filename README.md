@@ -1,13 +1,54 @@
 # ActivityWatch Health + Screen Time Stack
 
-Public setup repo for running local ActivityWatch importers for WHOOP and Apple Screen Time on macOS.
+<p align="center">
+  <img src="docs/assets/stack-architecture.svg" alt="ActivityWatch local lifelog stack architecture" width="100%">
+</p>
 
-It documents and wires together:
+<p align="center">
+  <b>Local-first lifelog infrastructure for ActivityWatch, WHOOP, Apple Screen Time, and OpenClaw agents.</b><br>
+  Health, recovery, app usage, and focus signals — private by default, automatable by design.
+</p>
 
-- WHOOP → ActivityWatch importer
-- Apple/iPhone Screen Time → ActivityWatch importer
-- launchd autostart jobs on macOS
-- privacy-safe WHOOP export email handling
+<p align="center">
+  <a href="https://github.com/Martin-Hausleitner/aw-activitywatch-stack/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Martin-Hausleitner/aw-activitywatch-stack/ci.yml?branch=main&label=stack%20ci"></a>
+  <a href="https://github.com/Martin-Hausleitner/aw-importer-whoop"><img alt="WHOOP importer" src="https://img.shields.io/badge/WHOOP-importer-17324d"></a>
+  <a href="https://github.com/Martin-Hausleitner/aw-importer-apple-screentime"><img alt="Screen Time importer" src="https://img.shields.io/badge/Apple%20Screen%20Time-importer-335c43"></a>
+  <img alt="Privacy" src="https://img.shields.io/badge/privacy-local--first-d6a84f">
+</p>
+
+## What this is
+
+This repo is the **public operating manual and automation layer** for a local ActivityWatch-based health/lifelog stack.
+
+It does not try to put private life data into GitHub. It publishes the safe parts:
+
+- architecture
+- installer scripts
+- launchd templates
+- validation tools
+- OpenClaw agent contracts
+- privacy rules
+- links to importer repos
+
+<p align="center">
+  <img src="docs/assets/data-model-radar.svg" alt="ActivityWatch data model" width="100%">
+</p>
+
+## Design principles
+
+- 🧭 **ActivityWatch is the local timeline hub** — no cloud dependency for analysis.
+- 🔐 **Private data stays private** — exports, emails, tokens, and raw events are ignored/local only.
+- 🧱 **Data model must make sense** — timeline blocks only for real intervals; daily metrics for scores/readiness.
+- 🤖 **Agents can help safely** — OpenClaw gets explicit rules, redaction defaults, and verification scripts.
+- 🧪 **Every change should verify** — doctor script, CI, secret scan, and launchd status checks.
+
+## System map
+
+- **WHOOP API** → sleep/workout timeline + recovery/strain context
+- **Apple Screen Time** → iPhone app-usage timeline
+- **ActivityWatch watchers** → Mac app/window/browser/editor activity
+- **WHOOP export email** → future targeted backfill path, never broad mailbox crawling
+- **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
 
 ## Quickstart
 
