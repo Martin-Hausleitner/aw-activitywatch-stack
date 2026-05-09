@@ -179,3 +179,26 @@ Nächste technische Erweiterung für `aw-importer-apple-health`:
 - `sync-folder` für eine lokale Dropzone mit idempotenten Imports.
 - `state.json` mit Record-Hashes gegen Dubletten.
 - Doctor-Check im Stack: Apple-Health-Buckets + letzter Importzeitpunkt.
+
+## Umgesetzte CLI-Anbindung für lokalen Sync
+
+`aw-importer-apple-health` unterstützt jetzt zusätzlich zur ZIP/XML-Route auch den lokalen Sync-Workflow:
+
+```bash
+aw-importer-apple-health import-json ~/health-sync/raw/steps.json --dry-run
+aw-importer-apple-health sync-folder ~/health-sync/raw --dry-run
+aw-importer-apple-health sync-folder ~/health-sync/raw
+```
+
+Damit passt die Pipeline zu Tools, die HealthKit-Daten lokal vom iPhone auf den Mac spiegeln. Die konkrete iPhone/Mac-App muss nur JSON-Dateien in eine lokale Dropzone schreiben. Der Importer normalisiert diese Records, schreibt sie in ActivityWatch und dedupliziert über lokalen State.
+
+Empfohlene erste Datentypen:
+
+- steps
+- sleep
+- heart-rate
+- workouts
+- resting-heart-rate
+- hrv
+
+Status: Code umgesetzt, Tests grün, GitHub CI grün. Noch offen ist das reale Pairing mit einer iPhone-App wie Health.md oder einer eigenen HealthKit-Sync-App.
