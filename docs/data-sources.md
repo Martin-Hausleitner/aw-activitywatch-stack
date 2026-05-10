@@ -65,9 +65,11 @@ Use for:
 - distraction analysis
 - cross-device daily summaries
 
-## Future unified daily summary
+## Local daily summary
 
-A future `aw-health-daily` layer should combine:
+`scripts/aw-health-daily-report.py` generates a local Markdown/JSON daily summary. Generated outputs under `outputs/health-daily/` are private local artifacts and should not be committed.
+
+A future ActivityWatch `aw-health-daily` bucket should combine:
 
 - ActivityWatch active time
 - iPhone Screen Time totals

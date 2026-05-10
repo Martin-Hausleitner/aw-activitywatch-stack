@@ -12,5 +12,7 @@ jobs:
           zsh -n scripts/*.sh
       - name: Check Python syntax
         run: python -m py_compile scripts/*.py
+      - name: Validate example OpenClaw ingestion config
+        run: python scripts/validate-openclaw-ingestion-config.py config/openclaw-ingestion.example.json
       - name: Secret scan
         run: python scripts/secret-scan.py

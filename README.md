@@ -44,10 +44,11 @@ It does not try to put private life data into GitHub. It publishes the safe part
 
 ## System map
 
-- **WHOOP API** → sleep/workout timeline + recovery/strain context
-- **Apple Screen Time** → iPhone app-usage timeline
+- **WHOOP API importer** → sleep/workout timeline + recovery/strain context
+- **Apple Screen Time importer** → iPhone app-usage timeline from local CSV/JSON drops
+- **Apple Health importer** → Health.md/local JSON sync plus ZIP/XML historical fallback
 - **ActivityWatch watchers** → Mac app/window/browser/editor activity
-- **WHOOP export email** → future targeted backfill path, never broad mailbox crawling
+- **WHOOP export email** → targeted backfill path, never broad mailbox crawling
 - **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
 
 ## Quickstart
@@ -89,6 +90,7 @@ config/    Non-secret example configuration
 
 - WHOOP importer: https://github.com/Martin-Hausleitner/aw-importer-whoop
 - Apple Screen Time importer: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
+- Apple Health importer: https://github.com/Martin-Hausleitner/aw-importer-apple-health
 
 ## Local ActivityWatch buckets
 
@@ -99,6 +101,7 @@ Expected buckets include:
 - `aw-importer-whoop-cycle`
 - `aw-importer-whoop-recovery`
 - `aw-import-screentime_ios_*`
+- `aw-importer-apple-health-*` (optional until iPhone Health sync/backfill is configured)
 
 ## Recommended model
 
@@ -127,6 +130,8 @@ Useful commands:
 
 ```bash
 python3 scripts/aw-health-report.py
+python3 scripts/aw-health-daily-report.py
+python3 scripts/validate-openclaw-ingestion-config.py config/openclaw-ingestion.example.json
 python3 scripts/secret-scan.py
 ```
 
@@ -151,6 +156,7 @@ Jobs:
 - `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
 - `ai.servas.aw-screentime-hourly` runs once per hour and imports new CSV/JSON files from:
   `~/ActivityWatchImports/screentime/`
+- `ai.servas.aw-apple-health-sync` is optional and runs once per hour when Apple Health sync/backfill is configured. It imports new JSON files from `~/health-sync/raw/` and ZIP/XML fallback exports from `~/ActivityWatchImports/apple-health/`.
 
 ## Screen Time hourly sync
 

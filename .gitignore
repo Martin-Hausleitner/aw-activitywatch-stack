@@ -18,6 +18,7 @@ ActivityWatchImports/
 *.zip
 config/*.local.json
 reports/private/
+outputs/health-daily/
 
 # Local launchd/customized scripts
 sync-whoop-keychain.sh
