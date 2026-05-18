@@ -15,7 +15,7 @@ from typing import Any
 
 
 DEFAULT_AW_BASE_URL = "http://127.0.0.1:5600/api/0"
-DEFAULT_SINCE = "72h"
+DEFAULT_SINCE = "all"
 ACTIVITYWATCH_APP = Path("/Applications/ActivityWatch.app")
 
 
@@ -180,20 +180,29 @@ def ensure_biome_importer(config: Config) -> Path:
     return executable
 
 
-def run_preview(config: Config, executable: Path) -> list[dict[str, Any]]:
+def is_full_history(value: str) -> bool:
+    return value.strip().lower() in {"", "all", "full", "everything", "0"}
+
+
+def preview_command(config: Config, executable: Path) -> list[str]:
     command = [
         str(executable),
         "events",
         "preview",
-        "--since",
-        config.since,
         "--limit",
         str(config.file_limit),
         "--platform",
         str(config.platform),
     ]
+    if not is_full_history(config.since):
+        command += ["--since", config.since]
     for storefront in config.storefronts:
         command += ["--storefront", storefront]
+    return command
+
+
+def run_preview(config: Config, executable: Path) -> list[dict[str, Any]]:
+    command = preview_command(config, executable)
     result = subprocess.run(command, cwd=config.biome_importer_dir, check=True, capture_output=True, text=True)
     if result.stderr.strip():
         print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
@@ -215,6 +224,26 @@ def parse_since_window(value: str) -> datetime:
         return day if value == "today" else day - timedelta(days=1)
     parsed = datetime.fromisoformat(value.replace("z", "+00:00").replace("Z", "+00:00"))
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def parse_event_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("z", "+00:00").replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def existing_query_window(preview_events: list[dict[str, Any]], since: str) -> tuple[datetime, datetime]:
+    spans: list[tuple[datetime, datetime]] = []
+    for event in preview_events:
+        if not event.get("timestamp"):
+            continue
+        start = parse_event_timestamp(str(event["timestamp"]))
+        spans.append((start, start + timedelta(seconds=_duration(event))))
+    if spans:
+        starts = [start for start, _ in spans]
+        ends = [end for _, end in spans]
+        return min(starts) - timedelta(seconds=1), max(ends) + timedelta(seconds=1)
+    start = datetime.now(timezone.utc) - timedelta(minutes=5) if is_full_history(since) else parse_since_window(since)
+    return start, datetime.now(timezone.utc) + timedelta(minutes=10)
 
 
 def bucket_id_for_device(device_id: str) -> str:
@@ -298,8 +327,6 @@ def sync(config: Config) -> int:
         executable = ensure_biome_importer(config)
         ensure_activitywatch(config.aw_base_url)
         preview = run_preview(config, executable)
-        start = parse_since_window(config.since)
-        end = datetime.now(timezone.utc) + timedelta(minutes=10)
         total_inserted = 0
         for device_summary in preview:
             device_id = str(device_summary.get("device_id") or "")
@@ -307,6 +334,7 @@ def sync(config: Config) -> int:
             if not device_id:
                 continue
             bucket = ensure_bucket(config.aw_base_url, device_id)
+            start, end = existing_query_window(preview_events, config.since)
             existing = fetch_existing_events(config.aw_base_url, bucket, start, end)
             new_events = filter_new_events(preview_events, existing)
             insert_events(config.aw_base_url, bucket, new_events)

@@ -63,7 +63,7 @@ Current automation:
 
 - reads macOS Biome `App.InFocus` files from `~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/`
 - runs every five hours via launchd
-- previews the last 72 hours and inserts only ActivityWatch events whose `(timestamp, duration, app)` signature is not already present
+- previews all locally available Biome history by default and inserts only ActivityWatch events whose `(timestamp, duration, app)` signature is not already present
 
 Use for:
 

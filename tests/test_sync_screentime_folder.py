@@ -32,6 +32,46 @@ def test_config_reads_biome_import_settings(monkeypatch, tmp_path):
     assert config.storefronts == ["at", "us"]
 
 
+def test_config_defaults_to_full_available_history(monkeypatch):
+    module = load_module()
+    monkeypatch.delenv("SCREENTIME_SINCE", raising=False)
+
+    config = module.Config.from_env()
+
+    assert config.since == "all"
+
+
+def test_preview_command_omits_since_for_full_history(tmp_path):
+    module = load_module()
+    config = module.Config(
+        biome_importer_dir=tmp_path,
+        aw_base_url="http://127.0.0.1:5600/api/0",
+        state_dir=tmp_path,
+        since="all",
+        file_limit=0,
+        storefronts=["at"],
+        platform=2,
+    )
+
+    command = module.preview_command(config, tmp_path / ".venv/bin/aw-import-screentime")
+
+    assert "--since" not in command
+    assert command[-2:] == ["--storefront", "at"]
+
+
+def test_existing_query_window_uses_preview_event_span():
+    module = load_module()
+    events = [
+        {"timestamp": "2026-05-18T17:25:51.732000+00:00", "duration_seconds": 29.2, "data": {"app": "B"}},
+        {"timestamp": "2025-06-28T07:45:47.000000+00:00", "duration_seconds": 10, "data": {"app": "A"}},
+    ]
+
+    start, end = module.existing_query_window(events, "all")
+
+    assert start.isoformat() == "2025-06-28T07:45:46+00:00"
+    assert end.isoformat() == "2026-05-18T17:26:21.932000+00:00"
+
+
 def test_event_signature_uses_stable_activitywatch_fields():
     module = load_module()
     first = {

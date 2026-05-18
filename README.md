@@ -1,12 +1,12 @@
-# ActivityWatch Health + Screen Time Stack
+# ActivityWatch Health + iPhone Screen Time Stack
 
 <p align="center">
   <img src="docs/assets/stack-architecture.svg" alt="ActivityWatch local lifelog stack architecture" width="100%">
 </p>
 
 <p align="center">
-  <b>Local-first lifelog infrastructure for ActivityWatch, WHOOP, Apple Screen Time, and OpenClaw agents.</b><br>
-  Health, recovery, app usage, and focus signals — private by default, automatable by design.
+  <b>Local-first lifelog infrastructure for ActivityWatch, WHOOP, and iPhone Screen Time.</b><br>
+  Health, recovery, app usage, and focus signals stay local, verifiable, and ready for agent workflows.
 </p>
 
 <p align="center">
@@ -16,9 +16,9 @@
   <img alt="Privacy" src="https://img.shields.io/badge/privacy-local--first-d6a84f">
 </p>
 
-## What this is
+## What This Is
 
-This repo is the **public operating manual and automation layer** for a local ActivityWatch-based health/lifelog stack.
+This repo is the **public operating manual and automation layer** for a local ActivityWatch-based health and lifelog stack.
 
 It does not try to put private life data into GitHub. It publishes the safe parts:
 
@@ -29,26 +29,50 @@ It does not try to put private life data into GitHub. It publishes the safe part
 - OpenClaw agent contracts
 - privacy rules
 - links to importer repos
+- a macOS LaunchAgent that keeps iPhone Screen Time synced every five hours
 
 <p align="center">
   <img src="docs/assets/data-model-radar.svg" alt="ActivityWatch data model" width="100%">
 </p>
 
-## Design principles
+## Design Principles
 
-- 🧭 **ActivityWatch is the local timeline hub** — no cloud dependency for analysis.
-- 🔐 **Private data stays private** — exports, emails, tokens, and raw events are ignored/local only.
-- 🧱 **Data model must make sense** — timeline blocks only for real intervals; daily metrics for scores/readiness.
-- 🤖 **Agents can help safely** — OpenClaw gets explicit rules, redaction defaults, and verification scripts.
-- 🧪 **Every change should verify** — doctor script, CI, secret scan, and launchd status checks.
+- **ActivityWatch is the local timeline hub** — no cloud dependency for analysis.
+- **Private data stays private** — exports, emails, tokens, and raw events are ignored/local only.
+- **Data model must make sense** — timeline blocks only for real intervals; daily metrics for scores/readiness.
+- **Agents can help safely** — OpenClaw gets explicit rules, redaction defaults, and verification scripts.
+- **Every change should verify** — doctor script, CI, secret scan, ActivityWatch queries, and launchd status checks.
 
-## System map
+## System Map
 
 - **WHOOP API** → sleep/workout timeline + recovery/strain context
 - **Apple Screen Time importer** → iPhone app-usage timeline from local Biome sync data
 - **ActivityWatch watchers** → Mac app/window/browser/editor activity
 - **WHOOP export email** → future targeted backfill path, never broad mailbox crawling
 - **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
+
+## iPhone Screen Time Sync
+
+The Screen Time job imports the real local Apple Biome stream:
+
+```text
+~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/
+```
+
+It uses the upstream Biome importer at:
+
+```text
+/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime
+```
+
+Default behavior:
+
+- scans all locally available Biome `App.InFocus` history
+- creates one ActivityWatch bucket per iOS device
+- inserts only missing `(timestamp, duration, app)` signatures
+- runs at login and then every 5 hours via launchd
+
+That means the first run is a full backfill. Later runs are incremental in effect, because existing ActivityWatch events are checked before inserts.
 
 ## Quickstart
 
@@ -58,7 +82,7 @@ cd aw-activitywatch-stack
 python3 scripts/aw-stack-doctor.py
 ```
 
-Install the five-hour Screen Time job:
+Install or refresh the five-hour Screen Time job:
 
 ```bash
 scripts/install-local-stack.sh
@@ -72,11 +96,11 @@ scripts/install-local-stack.sh
 - Verify ActivityWatch buckets with `scripts/verify-aw-buckets.py` before reporting success.
 - Run `scripts/secret-scan.py` before every push.
 
-## What this repo does not contain
+## What This Repo Does Not Contain
 
 This repo does not contain health exports, Screen Time exports, WHOOP tokens, OAuth secrets, mailbox credentials, or ActivityWatch databases.
 
-## Repo layout
+## Repo Layout
 
 ```text
 scripts/   Import, verification, validation, and agent helpers
@@ -91,7 +115,7 @@ config/    Non-secret example configuration
 - Apple Screen Time importer: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
 - Biome Screen Time importer: https://github.com/ActivityWatch/aw-import-screentime
 
-## Local ActivityWatch buckets
+## Local ActivityWatch Buckets
 
 Expected buckets include:
 
@@ -101,7 +125,7 @@ Expected buckets include:
 - `aw-importer-whoop-recovery`
 - `aw-import-screentime_ios_*`
 
-## Recommended model
+## Recommended Model
 
 - WHOOP sleep/workouts: timeline events
 - WHOOP recovery/day strain: daily metrics, not noisy timeline blocks
@@ -131,7 +155,7 @@ python3 scripts/aw-health-report.py
 python3 scripts/secret-scan.py
 ```
 
-## Autostart jobs
+## Autostart Jobs
 
 This repo ships templates in `launchd/`.
 
@@ -152,7 +176,7 @@ Jobs:
 - `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
 - `ai.servas.aw-screentime-hourly` runs every five hours and imports iPhone Screen Time from local macOS Biome `App.InFocus` sync data via `/Users/mh/aw-import-screentime`.
 
-## Screen Time five-hour sync
+## Screen Time Five-Hour Sync
 
 The Screen Time job reads the real Apple Biome stream synced by macOS:
 
@@ -163,20 +187,24 @@ The Screen Time job reads the real Apple Biome stream synced by macOS:
 It shells out to:
 
 ```text
-/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime events preview --since 72h --limit 0
+/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime events preview --limit 0
 ```
 
-Then it checks existing ActivityWatch events and inserts only missing event signatures, so overlapping five-hour runs do not duplicate data. Useful environment overrides:
+Then it checks existing ActivityWatch events and inserts only missing event signatures, so overlapping five-hour runs do not duplicate data.
+
+Useful environment overrides:
 
 ```text
 SCREENTIME_BIOME_IMPORTER_DIR=/Users/mh/aw-import-screentime
-SCREENTIME_SINCE=72h
+SCREENTIME_SINCE=all
 SCREENTIME_FILE_LIMIT=0
 SCREENTIME_STOREFRONTS=at,us
 ```
 
+Use `SCREENTIME_SINCE=72h` only when deliberately testing a smaller window. The default `all` setting is the production path because it syncs as much local iPhone Screen Time history as macOS has downloaded.
 
-## Install launchd jobs
+
+## Install Launchd Jobs
 
 Screen Time five-hour sync example:
 
