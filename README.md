@@ -70,9 +70,17 @@ Default behavior:
 - scans all locally available Biome `App.InFocus` history
 - creates one ActivityWatch bucket per iOS device
 - inserts only missing `(timestamp, duration, app)` signatures
-- runs at login and then every 5 hours via launchd
+- runs at login, on local Biome file updates, and then every 5 hours as a fallback via launchd
 
 That means the first run is a full backfill. Later runs are incremental in effect, because existing ActivityWatch events are checked before inserts.
+
+If the ActivityWatch API is not reachable, the runner falls back to the local ActivityWatch SQLite database:
+
+```text
+~/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db
+```
+
+That keeps the import working even when the tray app or HTTP server is not currently alive.
 
 ## Quickstart
 
@@ -87,6 +95,15 @@ Install or refresh the five-hour Screen Time job:
 ```bash
 scripts/install-local-stack.sh
 ```
+
+The installer renders the LaunchAgent with `WatchPaths` for:
+
+```text
+~/Library/Biome/streams/restricted/App.InFocus/remote
+~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>
+```
+
+When macOS writes newly synced iPhone Screen Time files, launchd starts the importer quickly. The five-hour interval stays in place because file watches can be missed while the Mac is asleep and because new device directories may appear after install.
 
 ## Agent safety rules
 
@@ -174,9 +191,9 @@ and launchd plists to:
 Jobs:
 
 - `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
-- `ai.servas.aw-screentime-hourly` runs every five hours and imports iPhone Screen Time from local macOS Biome `App.InFocus` sync data via `/Users/mh/aw-import-screentime`.
+- `ai.servas.aw-screentime-hourly` runs at login, when local Biome Screen Time files change, and every five hours as a fallback. It imports iPhone Screen Time from local macOS Biome `App.InFocus` sync data via `/Users/mh/aw-import-screentime`.
 
-## Screen Time Five-Hour Sync
+## Screen Time Biome Sync
 
 The Screen Time job reads the real Apple Biome stream synced by macOS:
 
@@ -192,6 +209,14 @@ It shells out to:
 
 Then it checks existing ActivityWatch events and inserts only missing event signatures, so overlapping five-hour runs do not duplicate data.
 
+The job does not pull directly from the iPhone. Apple syncs Screen Time into the Mac's local Biome store first; the LaunchAgent then reacts to those local file updates. To inspect macOS' own sync timing, check:
+
+```text
+~/Library/Biome/sync/sync.db
+```
+
+`DevicePeer.last_sync_date` stores per-device sync time as Unix epoch seconds. `SyncSessionLog`, `SyncMessageLog`, and many stream tables use Apple `CFAbsoluteTime`; add `978307200` seconds to compare them with Unix timestamps.
+
 Useful environment overrides:
 
 ```text
@@ -199,6 +224,7 @@ SCREENTIME_BIOME_IMPORTER_DIR=/Users/mh/aw-import-screentime
 SCREENTIME_SINCE=all
 SCREENTIME_FILE_LIMIT=0
 SCREENTIME_STOREFRONTS=at,us
+ACTIVITYWATCH_SQLITE_PATH=~/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db
 ```
 
 Use `SCREENTIME_SINCE=72h` only when deliberately testing a smaller window. The default `all` setting is the production path because it syncs as much local iPhone Screen Time history as macOS has downloaded.
@@ -214,11 +240,10 @@ mkdir -p "$HOME/Library/Logs/aw-activitywatch-stack"
 
 cp scripts/sync_screentime_folder.py "$HOME/Library/Application Support/aw-activitywatch-stack/"
 cp scripts/sync-screentime-folder.sh "$HOME/Library/Application Support/aw-activitywatch-stack/"
-cp launchd/ai.servas.aw-screentime-hourly.plist.template \
-  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
-
-sed -i '' "s#/Users/YOU#$HOME#g" \
-  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+python3 scripts/render_screentime_launchagent.py \
+  launchd/ai.servas.aw-screentime-hourly.plist.template \
+  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist" \
+  --home "$HOME"
 
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
 launchctl kickstart -k "gui/$UID/ai.servas.aw-screentime-hourly"

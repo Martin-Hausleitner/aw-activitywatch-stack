@@ -62,14 +62,23 @@ Local path:
 Current automation:
 
 - reads macOS Biome `App.InFocus` files from `~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/`
-- runs every five hours via launchd
+- runs via launchd at login, on local Biome file updates, and every five hours as a fallback
 - previews all locally available Biome history by default and inserts only ActivityWatch events whose `(timestamp, duration, app)` signature is not already present
+- uses the ActivityWatch HTTP API when available and the local ActivityWatch SQLite database as a fallback
 
 Use for:
 
 - phone app usage timeline
 - distraction analysis
 - cross-device daily summaries
+
+macOS receives iPhone Screen Time through Apple's local Biome sync layer; the ActivityWatch importer reads after that local sync has written files. The best local timing source is `~/Library/Biome/sync/sync.db`:
+
+- `DevicePeer.last_sync_date`: per-device last sync time, stored as Unix epoch seconds
+- `SyncSessionLog`: recent sync sessions, stored as Apple `CFAbsoluteTime`
+- `SyncMessageLog`: per-peer sync messages, stored as Apple `CFAbsoluteTime`
+
+Add `978307200` seconds to `CFAbsoluteTime` values before converting them to Unix timestamps.
 
 ## Future unified daily summary
 

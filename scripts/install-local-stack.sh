@@ -9,15 +9,19 @@ ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 mkdir -p "$APP_SUPPORT" "$LOG_DIR" "$LAUNCH_AGENTS" "$HOME/ActivityWatchImports/screentime" "$HOME/ActivityWatchImports/whoop-exports"
 cp "$ROOT/scripts/sync_screentime_folder.py" "$APP_SUPPORT/sync_screentime_folder.py"
 cp "$ROOT/scripts/sync-screentime-folder.sh" "$APP_SUPPORT/sync-screentime-folder.sh"
+cp "$ROOT/scripts/render_screentime_launchagent.py" "$APP_SUPPORT/render_screentime_launchagent.py"
 chmod 700 "$APP_SUPPORT/sync_screentime_folder.py"
 chmod 700 "$APP_SUPPORT/sync-screentime-folder.sh"
+chmod 700 "$APP_SUPPORT/render_screentime_launchagent.py"
 
 if [[ -f "$ROOT/scripts/sync-whoop-keychain.example.sh" ]]; then
   cp "$ROOT/scripts/sync-whoop-keychain.example.sh" "$APP_SUPPORT/sync-whoop-keychain.sh.example"
 fi
 
-cp "$ROOT/launchd/ai.servas.aw-screentime-hourly.plist.template" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist"
-/usr/bin/sed -i '' "s#/Users/YOU#$HOME#g" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist"
+python3 "$ROOT/scripts/render_screentime_launchagent.py" \
+  "$ROOT/launchd/ai.servas.aw-screentime-hourly.plist.template" \
+  "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist" \
+  --home "$HOME"
 
 launchctl bootout "gui/$UID" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist"

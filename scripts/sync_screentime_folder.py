@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -29,6 +30,7 @@ class Config:
         file_limit: int,
         storefronts: list[str],
         platform: int,
+        aw_sqlite_path: Path,
     ) -> None:
         self.biome_importer_dir = biome_importer_dir
         self.aw_base_url = aw_base_url
@@ -37,6 +39,7 @@ class Config:
         self.file_limit = file_limit
         self.storefronts = storefronts
         self.platform = platform
+        self.aw_sqlite_path = aw_sqlite_path
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -51,6 +54,12 @@ class Config:
             file_limit=int(os.environ.get("SCREENTIME_FILE_LIMIT", "0")),
             storefronts=storefronts,
             platform=int(os.environ.get("SCREENTIME_PLATFORM", "2")),
+            aw_sqlite_path=Path(
+                os.environ.get(
+                    "ACTIVITYWATCH_SQLITE_PATH",
+                    home / "Library" / "Application Support" / "activitywatch" / "aw-server" / "peewee-sqlite.v2.db",
+                )
+            ).expanduser(),
         )
 
 
@@ -129,10 +138,13 @@ def aw_ready(base_url: str) -> bool:
 
 
 def aw_server_binary(app_path: Path = ACTIVITYWATCH_APP) -> Path:
+    app_server = app_path / "Contents" / "MacOS" / "aw-server"
+    if app_server.exists():
+        return app_server
     rust_server = app_path / "Contents" / "Frameworks" / "aw-server-rust"
     if rust_server.exists():
         return rust_server
-    return app_path / "Contents" / "MacOS" / "aw-server"
+    return app_server
 
 
 def start_bundled_aw_server() -> None:
@@ -165,6 +177,15 @@ def ensure_activitywatch(base_url: str) -> None:
         if attempt == 2:
             start_bundled_aw_server()
     raise RuntimeError(f"ActivityWatch API still not reachable at {base_url}")
+
+
+def try_activitywatch(base_url: str) -> bool:
+    try:
+        ensure_activitywatch(base_url)
+    except Exception as exc:
+        log(f"ActivityWatch API unavailable after autostart attempt; using SQLite fallback: {exc}")
+        return False
+    return True
 
 
 def ensure_biome_importer(config: Config) -> Path:
@@ -295,7 +316,12 @@ def _duration(event: dict[str, Any]) -> float:
 
 def event_signature(event: dict[str, Any]) -> tuple[str, float, str]:
     data = event.get("data") if isinstance(event.get("data"), dict) else {}
-    return (str(event.get("timestamp")), _duration(event), str(data.get("app") or ""))
+    timestamp = str(event.get("timestamp"))
+    try:
+        timestamp = parse_event_timestamp(timestamp).isoformat()
+    except Exception:
+        pass
+    return (timestamp, _duration(event), str(data.get("app") or ""))
 
 
 def normalize_preview_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -320,24 +346,99 @@ def insert_events(base_url: str, bucket: str, events: list[dict[str, Any]]) -> N
     request_json(url, method="POST", payload=events)
 
 
+def ensure_bucket_sqlite(db_path: Path, device_id: str) -> int:
+    bucket = bucket_id_for_device(device_id)
+    hostname = f"ios-{device_id}"
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute("select key from bucketmodel where id = ?", (bucket,)).fetchone()
+        if row:
+            return int(row[0])
+        cursor = conn.execute(
+            """
+            insert into bucketmodel (id, created, name, type, client, hostname, datastr)
+            values (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                bucket,
+                datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                None,
+                "app",
+                "aw-import-screentime-five-hour",
+                hostname,
+                "{}",
+            ),
+        )
+        return int(cursor.lastrowid)
+
+
+def fetch_existing_events_sqlite(db_path: Path, bucket_key: int, start: datetime, end: datetime) -> list[dict[str, Any]]:
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            select timestamp, duration, datastr
+            from eventmodel
+            where bucket_id = ? and timestamp >= ? and timestamp <= ?
+            """,
+            (
+                bucket_key,
+                start.isoformat(sep=" "),
+                end.isoformat(sep=" "),
+            ),
+        ).fetchall()
+    events: list[dict[str, Any]] = []
+    for timestamp, duration, datastr in rows:
+        try:
+            data = json.loads(datastr or "{}")
+        except json.JSONDecodeError:
+            data = {}
+        events.append({"timestamp": str(timestamp), "duration": float(duration), "data": data})
+    return events
+
+
+def insert_events_sqlite(db_path: Path, bucket_key: int, events: list[dict[str, Any]]) -> None:
+    if not events:
+        return
+    rows = [
+        (
+            bucket_key,
+            parse_event_timestamp(str(event["timestamp"])).isoformat(sep=" "),
+            _duration(event),
+            json.dumps(event.get("data") if isinstance(event.get("data"), dict) else {}, ensure_ascii=True),
+        )
+        for event in events
+    ]
+    with sqlite3.connect(db_path) as conn:
+        conn.executemany(
+            "insert into eventmodel (bucket_id, timestamp, duration, datastr) values (?, ?, ?, ?)",
+            rows,
+        )
+
+
 def sync(config: Config) -> int:
     config.state_dir.mkdir(parents=True, exist_ok=True)
     with Lock(config.state_dir / "screentime-import.lock"):
         log("starting Biome Screen Time import scan")
         executable = ensure_biome_importer(config)
-        ensure_activitywatch(config.aw_base_url)
         preview = run_preview(config, executable)
+        use_http = try_activitywatch(config.aw_base_url)
         total_inserted = 0
         for device_summary in preview:
             device_id = str(device_summary.get("device_id") or "")
             preview_events = device_summary.get("events") if isinstance(device_summary.get("events"), list) else []
             if not device_id:
                 continue
-            bucket = ensure_bucket(config.aw_base_url, device_id)
             start, end = existing_query_window(preview_events, config.since)
-            existing = fetch_existing_events(config.aw_base_url, bucket, start, end)
+            if use_http:
+                bucket = ensure_bucket(config.aw_base_url, device_id)
+                existing = fetch_existing_events(config.aw_base_url, bucket, start, end)
+            else:
+                bucket_key = ensure_bucket_sqlite(config.aw_sqlite_path, device_id)
+                existing = fetch_existing_events_sqlite(config.aw_sqlite_path, bucket_key, start, end)
             new_events = filter_new_events(preview_events, existing)
-            insert_events(config.aw_base_url, bucket, new_events)
+            if use_http:
+                insert_events(config.aw_base_url, bucket, new_events)
+            else:
+                insert_events_sqlite(config.aw_sqlite_path, bucket_key, new_events)
             total_inserted += len(new_events)
             print(
                 "device="

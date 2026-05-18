@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sqlite3
 from pathlib import Path
 
 
@@ -51,6 +52,7 @@ def test_preview_command_omits_since_for_full_history(tmp_path):
         file_limit=0,
         storefronts=["at"],
         platform=2,
+        aw_sqlite_path=tmp_path / "activitywatch.db",
     )
 
     command = module.preview_command(config, tmp_path / ".venv/bin/aw-import-screentime")
@@ -88,6 +90,22 @@ def test_event_signature_uses_stable_activitywatch_fields():
     assert module.event_signature(first) == module.event_signature(second)
 
 
+def test_event_signature_normalizes_sqlite_timestamp_format():
+    module = load_module()
+    preview = {
+        "timestamp": "2026-05-18T19:21:08.630000+00:00",
+        "duration": 6.341978,
+        "data": {"app": "com.apple.mobiletimer"},
+    }
+    sqlite_event = {
+        "timestamp": "2026-05-18 19:21:08.630000+00:00",
+        "duration": 6.341978,
+        "data": {"app": "com.apple.mobiletimer"},
+    }
+
+    assert module.event_signature(preview) == module.event_signature(sqlite_event)
+
+
 def test_filter_new_events_skips_existing_activitywatch_signatures():
     module = load_module()
     existing = [
@@ -121,12 +139,57 @@ def test_filter_new_events_skips_existing_activitywatch_signatures():
     ]
 
 
-def test_aw_server_binary_prefers_rust_server_when_bundled():
+def test_aw_server_binary_prefers_activitywatch_app_server_when_bundled():
     module = load_module()
 
     path = module.aw_server_binary(Path("/Applications/ActivityWatch.app"))
 
-    assert path == Path("/Applications/ActivityWatch.app/Contents/Frameworks/aw-server-rust")
+    assert path == Path("/Applications/ActivityWatch.app/Contents/MacOS/aw-server")
+
+
+def test_sqlite_fallback_inserts_and_deduplicates_activitywatch_events(tmp_path):
+    module = load_module()
+    db_path = tmp_path / "aw.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            create table bucketmodel (
+                key integer not null primary key,
+                id varchar(255) not null,
+                created datetime not null,
+                name varchar(255),
+                type varchar(255) not null,
+                client varchar(255) not null,
+                hostname varchar(255) not null,
+                datastr varchar(255)
+            );
+            create unique index bucketmodel_id on bucketmodel (id);
+            create table eventmodel (
+                id integer not null primary key,
+                bucket_id integer not null,
+                timestamp datetime not null,
+                duration decimal(10, 5) not null,
+                datastr varchar(255) not null
+            );
+            """
+        )
+
+    bucket_key = module.ensure_bucket_sqlite(db_path, "device-a")
+    event = {
+        "timestamp": "2026-05-18T19:21:08.630000+00:00",
+        "duration": 6.341978,
+        "data": {"app": "com.apple.mobiletimer", "title": "Clock"},
+    }
+    module.insert_events_sqlite(db_path, bucket_key, [event])
+
+    existing = module.fetch_existing_events_sqlite(
+        db_path,
+        bucket_key,
+        module.parse_event_timestamp("2026-05-18T19:21:00+00:00"),
+        module.parse_event_timestamp("2026-05-18T19:22:00+00:00"),
+    )
+
+    assert module.filter_new_events([event], existing) == []
 
 
 def test_lock_reclaims_dead_pid(tmp_path):
