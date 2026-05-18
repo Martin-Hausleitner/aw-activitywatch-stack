@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>Local-first lifelog infrastructure for ActivityWatch, WHOOP, and iPhone Screen Time.</b><br>
+  <b>Local-first lifelog infrastructure for ActivityWatch, WHOOP, Apple Health, and iPhone Screen Time.</b><br>
   Health, recovery, app usage, and focus signals stay local, verifiable, and ready for agent workflows.
 </p>
 
@@ -29,13 +29,30 @@ It publishes the safe, reusable parts:
 - 🤖 agent contracts
 - 🔒 privacy rules
 - 📱 iPhone Screen Time automation
-- 💓 WHOOP and health data integration notes
+- 💓 WHOOP and Apple Health integration notes
 
 It does **not** contain private health exports, Screen Time exports, WHOOP tokens, OAuth secrets, mailbox credentials, or ActivityWatch databases.
 
 <p align="center">
   <img src="docs/assets/data-model-radar.svg" alt="ActivityWatch data model" width="100%">
 </p>
+
+## 🧭 Design Principles
+
+- 🧭 **ActivityWatch is the local timeline hub** — no cloud dependency for analysis.
+- 🔐 **Private data stays private** — exports, emails, tokens, and raw events are ignored/local only.
+- 🧱 **Data model must make sense** — timeline blocks only for real intervals; daily metrics for scores/readiness.
+- 🤖 **Agents can help safely** — OpenClaw gets explicit rules, redaction defaults, and verification scripts.
+- 🧪 **Every change should verify** — doctor script, CI, secret scan, launchd status, and ActivityWatch bucket checks.
+
+## 🗺️ System Map
+
+- **WHOOP API importer** → sleep/workout timeline plus recovery/strain context
+- **Apple Screen Time importer** → iPhone app-usage timeline from local Biome sync data
+- **Apple Health importer** → Health.md/local JSON sync plus ZIP/XML historical fallback
+- **ActivityWatch watchers** → Mac app/window/browser/editor activity
+- **WHOOP export email** → targeted backfill path, never broad mailbox crawling
+- **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
 
 ## 🚀 Quickstart
 
@@ -52,7 +69,7 @@ That installs or refreshes the iPhone Screen Time LaunchAgent:
 ~/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist
 ```
 
-The installed job runs:
+The installed Screen Time job runs:
 
 - immediately at login
 - whenever macOS writes local Screen Time Biome updates
@@ -167,14 +184,20 @@ It renders the LaunchAgent into:
 ~/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist
 ```
 
-The LaunchAgent watches:
+The Screen Time LaunchAgent watches:
 
 ```text
 ~/Library/Biome/streams/restricted/App.InFocus/remote
 ~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>
 ```
 
-Manual install commands:
+Installed jobs:
+
+- `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
+- `ai.servas.aw-screentime-hourly` runs at login, on local Biome updates, and every 5 hours as fallback.
+- `ai.servas.aw-apple-health-sync` is optional and runs once per hour when Apple Health sync/backfill is configured.
+
+Manual Screen Time install:
 
 ```bash
 mkdir -p "$HOME/Library/Application Support/aw-activitywatch-stack"
@@ -205,6 +228,7 @@ Run the core checks:
 
 ```bash
 pytest tests/test_sync_screentime_folder.py tests/test_render_screentime_launchagent.py -q
+python3 scripts/validate-openclaw-ingestion-config.py config/openclaw-ingestion.example.json
 python3 scripts/secret-scan.py
 plutil -lint launchd/ai.servas.aw-screentime-hourly.plist.template
 ```
@@ -243,6 +267,7 @@ config/    Non-secret example configuration
 
 - WHOOP importer: https://github.com/Martin-Hausleitner/aw-importer-whoop
 - Apple Screen Time importer: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
+- Apple Health importer: https://github.com/Martin-Hausleitner/aw-importer-apple-health
 - Biome Screen Time importer: https://github.com/ActivityWatch/aw-import-screentime
 
 ## 📊 Expected ActivityWatch Buckets
@@ -252,12 +277,14 @@ config/    Non-secret example configuration
 - `aw-importer-whoop-cycle`
 - `aw-importer-whoop-recovery`
 - `aw-import-screentime_ios_*`
+- `aw-importer-apple-health-*` (optional until iPhone Health sync/backfill is configured)
 
 Recommended model:
 
 - WHOOP sleep/workouts: timeline events
 - WHOOP recovery/day strain: daily metrics
 - iPhone Screen Time: app-usage timeline events
+- Apple Health daily metrics: daily metric buckets
 - ActivityWatch desktop usage: baseline work timeline
 
 ## 🧭 OpenClaw Integration
@@ -274,6 +301,15 @@ Key docs:
 - `docs/operations.md` — local runbook and repair checklist
 - `docs/data-sources.md` — WHOOP, Screen Time, ActivityWatch, and future daily summary model
 - `docs/whoop-export-email-policy.md` — privacy-safe targeted email export discovery
+
+Useful commands:
+
+```bash
+python3 scripts/aw-health-report.py
+python3 scripts/aw-health-daily-report.py
+python3 scripts/validate-openclaw-ingestion-config.py config/openclaw-ingestion.example.json
+python3 scripts/secret-scan.py
+```
 
 ## 🔧 Useful Environment Overrides
 
