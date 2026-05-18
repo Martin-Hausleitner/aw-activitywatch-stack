@@ -54,7 +54,8 @@ for label in ("ai.servas.aw-whoop-sync", "ai.servas.aw-screentime-hourly", "ai.s
     else:
         check(f"launchd {label}", ok, detail)
 
-check("Screen Time dropzone", Path.home().joinpath("ActivityWatchImports/screentime").exists(), "~/ActivityWatchImports/screentime")
+check("Screen Time Biome stream", Path.home().joinpath("Library/Biome/streams/restricted/App.InFocus/remote").exists(), "~/Library/Biome/streams/restricted/App.InFocus/remote")
+check("Screen Time Biome importer", Path.home().joinpath("aw-import-screentime/.venv/bin/aw-import-screentime").exists(), "~/aw-import-screentime/.venv/bin/aw-import-screentime")
 check("Apple Health raw dropzone", Path.home().joinpath("health-sync/raw").exists(), "~/health-sync/raw")
 check("Apple Health export fallback", Path.home().joinpath("ActivityWatchImports/apple-health").exists(), "~/ActivityWatchImports/apple-health")
 check("Apple Health state", Path.home().joinpath("Library/Application Support/aw-importer-apple-health/state.json").exists(), "~/Library/Application Support/aw-importer-apple-health/state.json", optional=True)

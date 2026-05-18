@@ -51,13 +51,19 @@ Matching rules should use:
 
 ## Apple/iPhone Screen Time
 
-Repo: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
+Importer repo: https://github.com/ActivityWatch/aw-import-screentime
+
+Local path:
+
+```text
+/Users/mh/aw-import-screentime
+```
 
 Current automation:
 
-- reads CSV/JSON from `~/ActivityWatchImports/screentime/`
-- runs hourly via launchd
-- imports only files not already seen by SHA-256
+- reads macOS Biome `App.InFocus` files from `~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/`
+- runs every five hours via launchd
+- previews the last 72 hours and inserts only ActivityWatch events whose `(timestamp, duration, app)` signature is not already present
 
 Use for:
 

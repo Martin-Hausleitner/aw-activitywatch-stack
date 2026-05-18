@@ -7,7 +7,9 @@ LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 mkdir -p "$APP_SUPPORT" "$LOG_DIR" "$LAUNCH_AGENTS" "$HOME/ActivityWatchImports/screentime" "$HOME/ActivityWatchImports/whoop-exports"
+cp "$ROOT/scripts/sync_screentime_folder.py" "$APP_SUPPORT/sync_screentime_folder.py"
 cp "$ROOT/scripts/sync-screentime-folder.sh" "$APP_SUPPORT/sync-screentime-folder.sh"
+chmod 700 "$APP_SUPPORT/sync_screentime_folder.py"
 chmod 700 "$APP_SUPPORT/sync-screentime-folder.sh"
 
 if [[ -f "$ROOT/scripts/sync-whoop-keychain.example.sh" ]]; then
@@ -21,6 +23,7 @@ launchctl bootout "gui/$UID" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plis
 launchctl bootstrap "gui/$UID" "$LAUNCH_AGENTS/ai.servas.aw-screentime-hourly.plist"
 launchctl kickstart -k "gui/$UID/ai.servas.aw-screentime-hourly"
 
-echo "installed_screen_time_hourly=ok"
-echo "dropzone=$HOME/ActivityWatchImports/screentime"
+echo "installed_screen_time_five_hour=ok"
+echo "source=$HOME/Library/Biome/streams/restricted/App.InFocus/remote"
+echo "importer=$HOME/aw-import-screentime"
 echo "logs=$LOG_DIR"

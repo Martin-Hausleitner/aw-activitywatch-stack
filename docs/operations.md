@@ -9,19 +9,23 @@ python3 scripts/aw-health-report.py
 
 ## Screen Time imports
 
-Drop CSV/JSON exports into:
+The Screen Time job reads local macOS Biome data synced from iPhone Screen Time:
 
 ```text
-~/ActivityWatchImports/screentime/
+~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/
 ```
 
-The hourly job imports unchanged files only once by SHA-256.
+The five-hour job previews the last 72 hours and inserts only missing ActivityWatch event signatures, so overlapping runs do not duplicate existing events.
 
 Manual run:
 
 ```bash
-~/Library/Application\ Support/aw-activitywatch-stack/sync-screentime-folder.sh
+~/Library/Application\ Support/aw-activitywatch-stack/sync_screentime_folder.py
 ```
+
+The importer expects the ActivityWatch API on `127.0.0.1:5600`; if it is down, the Python runner opens ActivityWatch before importing.
+
+If this returns no events, check that Screen Time “Share Across Devices” is enabled and that `/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime devices --paths` lists iOS devices with recent files.
 
 ## WHOOP sync
 

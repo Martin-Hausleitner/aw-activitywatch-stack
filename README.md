@@ -45,7 +45,7 @@ It does not try to put private life data into GitHub. It publishes the safe part
 ## System map
 
 - **WHOOP API** → sleep/workout timeline + recovery/strain context
-- **Apple Screen Time** → iPhone app-usage timeline
+- **Apple Screen Time importer** → iPhone app-usage timeline from local Biome sync data
 - **ActivityWatch watchers** → Mac app/window/browser/editor activity
 - **WHOOP export email** → future targeted backfill path, never broad mailbox crawling
 - **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
@@ -58,7 +58,7 @@ cd aw-activitywatch-stack
 python3 scripts/aw-stack-doctor.py
 ```
 
-Install the hourly Screen Time job:
+Install the five-hour Screen Time job:
 
 ```bash
 scripts/install-local-stack.sh
@@ -89,6 +89,7 @@ config/    Non-secret example configuration
 
 - WHOOP importer: https://github.com/Martin-Hausleitner/aw-importer-whoop
 - Apple Screen Time importer: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
+- Biome Screen Time importer: https://github.com/ActivityWatch/aw-import-screentime
 
 ## Local ActivityWatch buckets
 
@@ -149,37 +150,41 @@ and launchd plists to:
 Jobs:
 
 - `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
-- `ai.servas.aw-screentime-hourly` runs once per hour and imports new CSV/JSON files from:
-  `~/ActivityWatchImports/screentime/`
+- `ai.servas.aw-screentime-hourly` runs every five hours and imports iPhone Screen Time from local macOS Biome `App.InFocus` sync data via `/Users/mh/aw-import-screentime`.
 
-## Screen Time hourly sync
+## Screen Time five-hour sync
 
-Put exports here:
+The Screen Time job reads the real Apple Biome stream synced by macOS:
 
 ```text
-~/ActivityWatchImports/screentime/
+~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/
 ```
 
-Accepted formats:
-
-- `.csv`
-- `.json`
-
-Already imported files are tracked by SHA-256 in local state:
+It shells out to:
 
 ```text
-~/Library/Application Support/aw-activitywatch-stack/screentime-imported-files.txt
+/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime events preview --since 72h --limit 0
+```
+
+Then it checks existing ActivityWatch events and inserts only missing event signatures, so overlapping five-hour runs do not duplicate data. Useful environment overrides:
+
+```text
+SCREENTIME_BIOME_IMPORTER_DIR=/Users/mh/aw-import-screentime
+SCREENTIME_SINCE=72h
+SCREENTIME_FILE_LIMIT=0
+SCREENTIME_STOREFRONTS=at,us
 ```
 
 
 ## Install launchd jobs
 
-Screen Time hourly sync example:
+Screen Time five-hour sync example:
 
 ```bash
 mkdir -p "$HOME/Library/Application Support/aw-activitywatch-stack"
 mkdir -p "$HOME/Library/Logs/aw-activitywatch-stack"
 
+cp scripts/sync_screentime_folder.py "$HOME/Library/Application Support/aw-activitywatch-stack/"
 cp scripts/sync-screentime-folder.sh "$HOME/Library/Application Support/aw-activitywatch-stack/"
 cp launchd/ai.servas.aw-screentime-hourly.plist.template \
   "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
