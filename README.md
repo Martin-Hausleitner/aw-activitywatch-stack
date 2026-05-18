@@ -16,42 +16,77 @@
   <img alt="Privacy" src="https://img.shields.io/badge/privacy-local--first-d6a84f">
 </p>
 
-## What This Is
+## ✨ What This Is
 
-This repo is the **public operating manual and automation layer** for a local ActivityWatch-based health and lifelog stack.
+This repo is the public operating manual and automation layer for a local ActivityWatch-based health and lifelog stack.
 
-It does not try to put private life data into GitHub. It publishes the safe parts:
+It publishes the safe, reusable parts:
 
-- architecture
-- installer scripts
-- launchd templates
-- validation tools
-- OpenClaw agent contracts
-- privacy rules
-- links to importer repos
-- a macOS LaunchAgent that keeps iPhone Screen Time synced every five hours
+- 🧭 architecture and operating notes
+- 🛠️ installer scripts
+- 🚀 launchd templates
+- ✅ validation tools
+- 🤖 agent contracts
+- 🔒 privacy rules
+- 📱 iPhone Screen Time automation
+- 💓 WHOOP and health data integration notes
+
+It does **not** contain private health exports, Screen Time exports, WHOOP tokens, OAuth secrets, mailbox credentials, or ActivityWatch databases.
 
 <p align="center">
   <img src="docs/assets/data-model-radar.svg" alt="ActivityWatch data model" width="100%">
 </p>
 
-## Design Principles
+## 🚀 Quickstart
 
-- **ActivityWatch is the local timeline hub** — no cloud dependency for analysis.
-- **Private data stays private** — exports, emails, tokens, and raw events are ignored/local only.
-- **Data model must make sense** — timeline blocks only for real intervals; daily metrics for scores/readiness.
-- **Agents can help safely** — OpenClaw gets explicit rules, redaction defaults, and verification scripts.
-- **Every change should verify** — doctor script, CI, secret scan, ActivityWatch queries, and launchd status checks.
+```bash
+git clone https://github.com/Martin-Hausleitner/aw-activitywatch-stack.git
+cd aw-activitywatch-stack
+python3 scripts/aw-stack-doctor.py
+scripts/install-local-stack.sh
+```
 
-## System Map
+That installs or refreshes the iPhone Screen Time LaunchAgent:
 
-- **WHOOP API** → sleep/workout timeline + recovery/strain context
-- **Apple Screen Time importer** → iPhone app-usage timeline from local Biome sync data
-- **ActivityWatch watchers** → Mac app/window/browser/editor activity
-- **WHOOP export email** → future targeted backfill path, never broad mailbox crawling
-- **OpenClaw agents** → read aggregate local data, update docs/code, never publish private exports
+```text
+~/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist
+```
 
-## iPhone Screen Time Sync
+The installed job runs:
+
+- immediately at login
+- whenever macOS writes local Screen Time Biome updates
+- every 5 hours as a fallback
+
+## 🤖 Agent Quickstart
+
+Agents working in this repo should use this flow:
+
+```bash
+cd /Users/mh/.openclaw/workspace/aw-activitywatch-stack
+python3 scripts/aw-stack-doctor.py
+scripts/install-local-stack.sh
+launchctl print "gui/$UID/ai.servas.aw-screentime-hourly"
+python3 scripts/secret-scan.py
+```
+
+When reporting success, verify the real local state first:
+
+```bash
+plutil -p "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+sqlite3 "$HOME/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db" \
+  "select b.id, count(e.id), min(e.timestamp), max(e.timestamp) from bucketmodel b left join eventmodel e on e.bucket_id=b.key where b.id like 'aw-import-screentime_ios_%' group by b.id;"
+```
+
+Agent rules:
+
+- 🔒 Never commit private exports, app usage logs, ActivityWatch DBs, OAuth files, or mailbox samples.
+- ✅ Run `python3 scripts/secret-scan.py` before every push.
+- 📍 Prefer local paths and `127.0.0.1`; do not upload private telemetry.
+- 🧪 Verify launchd status and ActivityWatch buckets before saying the sync works.
+- 🧹 Stage only files related to the current task; leave unrelated local work alone.
+
+## 📱 iPhone Screen Time Sync
 
 The Screen Time job imports the real local Apple Biome stream:
 
@@ -70,54 +105,132 @@ Default behavior:
 - scans all locally available Biome `App.InFocus` history
 - creates one ActivityWatch bucket per iOS device
 - inserts only missing `(timestamp, duration, app)` signatures
-- runs at login, on local Biome file updates, and then every 5 hours as a fallback via launchd
+- listens for local Biome file updates with launchd `WatchPaths`
+- keeps `StartInterval = 18000` seconds as a 5-hour fallback
 
-That means the first run is a full backfill. Later runs are incremental in effect, because existing ActivityWatch events are checked before inserts.
+The first run is a full backfill. Later runs are incremental in effect, because existing ActivityWatch events are checked before inserts.
 
-If the ActivityWatch API is not reachable, the runner falls back to the local ActivityWatch SQLite database:
+## 🧠 How The Sync Really Works
+
+The Mac does not pull live data from the iPhone for every tap. The flow is:
+
+```text
+iPhone Screen Time
+  -> Apple/iCloud/Biome sync
+  -> local Mac Biome files
+  -> LaunchAgent WatchPaths trigger
+  -> aw-import-screentime preview
+  -> ActivityWatch bucket insert
+```
+
+The best local timing source is:
+
+```text
+~/Library/Biome/sync/sync.db
+```
+
+Useful sync metadata:
+
+- `DevicePeer.last_sync_date`: per-device last sync time, stored as Unix epoch seconds
+- `SyncSessionLog`: sync sessions, stored as Apple `CFAbsoluteTime`
+- `SyncMessageLog`: per-peer sync messages, stored as Apple `CFAbsoluteTime`
+
+For `CFAbsoluteTime`, add `978307200` seconds before converting to Unix time.
+
+## 🛡️ ActivityWatch Fallback
+
+The runner uses the ActivityWatch HTTP API when it is available:
+
+```text
+http://127.0.0.1:5600/api/0
+```
+
+If the API is not reachable, it writes to the local ActivityWatch SQLite database:
 
 ```text
 ~/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db
 ```
 
-That keeps the import working even when the tray app or HTTP server is not currently alive.
+That keeps imports working even when the tray app or HTTP server is not currently alive. The data is present for the next ActivityWatch UI/API start.
 
-## Quickstart
+## 🧰 Install Details
 
-```bash
-git clone https://github.com/Martin-Hausleitner/aw-activitywatch-stack.git
-cd aw-activitywatch-stack
-python3 scripts/aw-stack-doctor.py
+The installer copies scripts into:
+
+```text
+~/Library/Application Support/aw-activitywatch-stack/
 ```
 
-Install or refresh the five-hour Screen Time job:
+It renders the LaunchAgent into:
 
-```bash
-scripts/install-local-stack.sh
+```text
+~/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist
 ```
 
-The installer renders the LaunchAgent with `WatchPaths` for:
+The LaunchAgent watches:
 
 ```text
 ~/Library/Biome/streams/restricted/App.InFocus/remote
 ~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>
 ```
 
-When macOS writes newly synced iPhone Screen Time files, launchd starts the importer quickly. The five-hour interval stays in place because file watches can be missed while the Mac is asleep and because new device directories may appear after install.
+Manual install commands:
 
-## Agent safety rules
+```bash
+mkdir -p "$HOME/Library/Application Support/aw-activitywatch-stack"
+mkdir -p "$HOME/Library/Logs/aw-activitywatch-stack"
 
-- Do not read broad mailbox history.
-- Do not upload or commit health, sleep, workout, email, or app-usage exports.
-- Prefer local-only paths and `127.0.0.1`.
-- Verify ActivityWatch buckets with `scripts/verify-aw-buckets.py` before reporting success.
-- Run `scripts/secret-scan.py` before every push.
+cp scripts/sync_screentime_folder.py "$HOME/Library/Application Support/aw-activitywatch-stack/"
+cp scripts/sync-screentime-folder.sh "$HOME/Library/Application Support/aw-activitywatch-stack/"
 
-## What This Repo Does Not Contain
+python3 scripts/render_screentime_launchagent.py \
+  launchd/ai.servas.aw-screentime-hourly.plist.template \
+  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist" \
+  --home "$HOME"
 
-This repo does not contain health exports, Screen Time exports, WHOOP tokens, OAuth secrets, mailbox credentials, or ActivityWatch databases.
+launchctl bootout "gui/$UID" "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist" >/dev/null 2>&1 || true
+launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+launchctl kickstart -k "gui/$UID/ai.servas.aw-screentime-hourly"
+```
 
-## Repo Layout
+Unload:
+
+```bash
+launchctl bootout "gui/$UID/ai.servas.aw-screentime-hourly"
+```
+
+## ✅ Verify
+
+Run the core checks:
+
+```bash
+pytest tests/test_sync_screentime_folder.py tests/test_render_screentime_launchagent.py -q
+python3 scripts/secret-scan.py
+plutil -lint launchd/ai.servas.aw-screentime-hourly.plist.template
+```
+
+Check the installed job:
+
+```bash
+plutil -p "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
+launchctl print "gui/$UID/ai.servas.aw-screentime-hourly"
+```
+
+Check imported iPhone Screen Time buckets:
+
+```bash
+sqlite3 "$HOME/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db" \
+  "select b.id, count(e.id), min(e.timestamp), max(e.timestamp), round(sum(e.duration)/60.0, 2) from bucketmodel b left join eventmodel e on e.bucket_id=b.key where b.id like 'aw-import-screentime_ios_%' group by b.id;"
+```
+
+Check recent Apple Biome sync timing:
+
+```bash
+sqlite3 "$HOME/Library/Biome/sync/sync.db" \
+  "select device_identifier, platform, datetime(last_sync_date, 'unixepoch', 'localtime') from DevicePeer order by last_sync_date desc;"
+```
+
+## 🗂️ Repo Layout
 
 ```text
 scripts/   Import, verification, validation, and agent helpers
@@ -126,15 +239,13 @@ docs/      Privacy, data-source, and OpenClaw operating notes
 config/    Non-secret example configuration
 ```
 
-## Repositories
+## 🔗 Related Repositories
 
 - WHOOP importer: https://github.com/Martin-Hausleitner/aw-importer-whoop
 - Apple Screen Time importer: https://github.com/Martin-Hausleitner/aw-importer-apple-screentime
 - Biome Screen Time importer: https://github.com/ActivityWatch/aw-import-screentime
 
-## Local ActivityWatch Buckets
-
-Expected buckets include:
+## 📊 Expected ActivityWatch Buckets
 
 - `aw-importer-whoop-sleep`
 - `aw-importer-whoop-workout`
@@ -142,17 +253,16 @@ Expected buckets include:
 - `aw-importer-whoop-recovery`
 - `aw-import-screentime_ios_*`
 
-## Recommended Model
+Recommended model:
 
 - WHOOP sleep/workouts: timeline events
-- WHOOP recovery/day strain: daily metrics, not noisy timeline blocks
+- WHOOP recovery/day strain: daily metrics
 - iPhone Screen Time: app-usage timeline events
 - ActivityWatch desktop usage: baseline work timeline
 
+## 🧭 OpenClaw Integration
 
-## OpenClaw integration
-
-OpenClaw agents should treat this repo as the operating contract for local ActivityWatch health/lifelog data.
+OpenClaw agents should treat this repo as the operating contract for local ActivityWatch health and lifelog data.
 
 Key docs:
 
@@ -165,137 +275,29 @@ Key docs:
 - `docs/data-sources.md` — WHOOP, Screen Time, ActivityWatch, and future daily summary model
 - `docs/whoop-export-email-policy.md` — privacy-safe targeted email export discovery
 
-Useful commands:
-
-```bash
-python3 scripts/aw-health-report.py
-python3 scripts/secret-scan.py
-```
-
-## Autostart Jobs
-
-This repo ships templates in `launchd/`.
-
-Local install should copy scripts to:
-
-```text
-~/Library/Application Support/aw-activitywatch-stack/
-```
-
-and launchd plists to:
-
-```text
-~/Library/LaunchAgents/
-```
-
-Jobs:
-
-- `ai.servas.aw-whoop-sync` runs WHOOP sync continuously every 15 minutes internally.
-- `ai.servas.aw-screentime-hourly` runs at login, when local Biome Screen Time files change, and every five hours as a fallback. It imports iPhone Screen Time from local macOS Biome `App.InFocus` sync data via `/Users/mh/aw-import-screentime`.
-
-## Screen Time Biome Sync
-
-The Screen Time job reads the real Apple Biome stream synced by macOS:
-
-```text
-~/Library/Biome/streams/restricted/App.InFocus/remote/<device-id>/
-```
-
-It shells out to:
-
-```text
-/Users/mh/aw-import-screentime/.venv/bin/aw-import-screentime events preview --limit 0
-```
-
-Then it checks existing ActivityWatch events and inserts only missing event signatures, so overlapping five-hour runs do not duplicate data.
-
-The job does not pull directly from the iPhone. Apple syncs Screen Time into the Mac's local Biome store first; the LaunchAgent then reacts to those local file updates. To inspect macOS' own sync timing, check:
-
-```text
-~/Library/Biome/sync/sync.db
-```
-
-`DevicePeer.last_sync_date` stores per-device sync time as Unix epoch seconds. `SyncSessionLog`, `SyncMessageLog`, and many stream tables use Apple `CFAbsoluteTime`; add `978307200` seconds to compare them with Unix timestamps.
-
-Useful environment overrides:
+## 🔧 Useful Environment Overrides
 
 ```text
 SCREENTIME_BIOME_IMPORTER_DIR=/Users/mh/aw-import-screentime
 SCREENTIME_SINCE=all
 SCREENTIME_FILE_LIMIT=0
 SCREENTIME_STOREFRONTS=at,us
+ACTIVITYWATCH_API_URL=http://127.0.0.1:5600/api/0
 ACTIVITYWATCH_SQLITE_PATH=~/Library/Application Support/activitywatch/aw-server/peewee-sqlite.v2.db
 ```
 
-Use `SCREENTIME_SINCE=72h` only when deliberately testing a smaller window. The default `all` setting is the production path because it syncs as much local iPhone Screen Time history as macOS has downloaded.
+Use `SCREENTIME_SINCE=72h` only for a deliberately smaller diagnostic run. The production default is `all`, because it syncs as much local iPhone Screen Time history as macOS has downloaded.
 
-
-## Install Launchd Jobs
-
-Screen Time five-hour sync example:
-
-```bash
-mkdir -p "$HOME/Library/Application Support/aw-activitywatch-stack"
-mkdir -p "$HOME/Library/Logs/aw-activitywatch-stack"
-
-cp scripts/sync_screentime_folder.py "$HOME/Library/Application Support/aw-activitywatch-stack/"
-cp scripts/sync-screentime-folder.sh "$HOME/Library/Application Support/aw-activitywatch-stack/"
-python3 scripts/render_screentime_launchagent.py \
-  launchd/ai.servas.aw-screentime-hourly.plist.template \
-  "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist" \
-  --home "$HOME"
-
-launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/ai.servas.aw-screentime-hourly.plist"
-launchctl kickstart -k "gui/$UID/ai.servas.aw-screentime-hourly"
-```
-
-Unload:
-
-```bash
-launchctl bootout "gui/$UID/ai.servas.aw-screentime-hourly"
-```
-
-## WHOOP credentials
-
-Never commit secrets.
-
-The local WHOOP job should read:
-
-- client id from local script/env
-- client secret from macOS Keychain
-- refresh/access tokens from the WHOOP importer's local config dir
-
-## WHOOP export emails
-
-See `docs/whoop-export-email-policy.md`.
-
-Important: agents must not broadly fetch mailboxes. They should only fetch messages matching the confirmed WHOOP export email pattern.
-
-## Verify
-
-```bash
-curl -fsS http://127.0.0.1:5600/api/0/info
-python3 scripts/verify-aw-buckets.py
-```
-
-## Current local status
-
-A healthy local setup should show:
-
-- ActivityWatch server on `127.0.0.1:5600`
-- WHOOP import buckets for sleep/workout/cycle/recovery
-- Apple Screen Time buckets named `aw-import-screentime_ios_*`
-- hourly Screen Time launchd job: `ai.servas.aw-screentime-hourly`
-- continuous WHOOP launchd job: `ai.servas.aw-whoop-sync`
-```
-
-## Security
+## 🔐 Security
 
 Do not commit:
 
 - tokens
 - client secrets
-- exported health/screen-time files
+- exported health or Screen Time files
 - `.eml` / `.em1` samples
 - mailbox config
 - logs containing private app usage
+- ActivityWatch SQLite databases
+
+Privacy default: aggregate by app/category unless detailed titles are explicitly requested and locally appropriate.
